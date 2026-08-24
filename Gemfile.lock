@@ -21,7 +21,7 @@ GEM
       public_suffix (>= 2.0.2, < 8.0)
     ast (2.4.3)
     bigdecimal (3.2.2)
-    json (2.12.2)
+    json (2.19.9)
     json-schema (5.1.1)
       addressable (~> 2.8)
       bigdecimal (~> 3.1)
