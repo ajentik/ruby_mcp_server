@@ -31,9 +31,10 @@ module McpServer
         response = nil
         if config.transport
           begin
-            mcp_server.transport = config.transport.new(mcp_server)
+            transport_supported = mcp_server.respond_to?(:transport=)
+            mcp_server.transport = config.transport.new(mcp_server) if transport_supported
 
-            if mcp_server.transport.respond_to?(:handle_request)
+            if transport_supported && mcp_server.transport.respond_to?(:handle_request)
               status, headers, body = mcp_server.transport.handle_request(request)
 
               body = if body.nil?
@@ -50,8 +51,8 @@ module McpServer
 
               response = [status, headers, body]
             else
-              # mcp <= 0.1.0 / transports without handle_request: no transport
-              # dispatch support; process the raw JSON-RPC body directly.
+              # mcp <= 0.1.0 (no transport=) / transports without handle_request:
+              # no transport dispatch support; process the raw JSON-RPC body directly.
               request.body.rewind if request.body.respond_to?(:rewind)
               json_response = mcp_server.handle_json(request.body.read)
               response = [200, {"Content-Type" => "application/json"}, [json_response.to_json]]
