@@ -835,4 +835,38 @@ class TestRackApp < Minitest::Test
     body = JSON.parse(response.body)
     assert_equal "Internal server error", body["error"]
   end
+
+  def test_transport_nomethoderror_returns_500_not_legacy_fallback
+    nomethoderror_transport = Class.new do
+      def initialize(server)
+        @server = server
+      end
+
+      def handle_request(request)
+        raise NoMethodError, "undefined method `boom' for nil"
+      end
+    end
+
+    McpServer.configure do |config|
+      config.tools = -> { [] }
+      config.transport = nomethoderror_transport
+    end
+
+    request = Rack::MockRequest.new(app)
+
+    mcp_request = {
+      jsonrpc: "2.0",
+      method: "tools/list",
+      params: {},
+      id: 1
+    }.to_json
+
+    response = request.post("/",
+      :input => mcp_request,
+      "CONTENT_TYPE" => "application/json")
+
+    assert_equal 500, response.status
+    body = JSON.parse(response.body)
+    assert_match(/Internal server error/, body["error"])
+  end
 end
