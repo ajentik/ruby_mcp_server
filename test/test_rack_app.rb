@@ -869,4 +869,49 @@ class TestRackApp < Minitest::Test
     body = JSON.parse(response.body)
     assert_match(/Internal server error/, body["error"])
   end
+
+  def test_legacy_dispatch_when_server_lacks_transport_setter
+    server_without_transport = Class.new do
+      def initialize(*)
+      end
+
+      def handle_json(json_string)
+        parsed = JSON.parse(json_string, symbolize_names: true)
+        {jsonrpc: "2.0", id: parsed[:id], result: {legacy: true}}
+      end
+    end.new
+
+    McpServer.configure do |config|
+      config.transport = Class.new do
+        def initialize(server)
+          @server = server
+        end
+
+        def handle_request(request)
+          [200, {"Content-Type" => "application/json"}, [{}.to_json]]
+        end
+      end
+    end
+
+    MCP::Server.stub :new, server_without_transport do
+      request = Rack::MockRequest.new(app)
+
+      mcp_request = {
+        jsonrpc: "2.0",
+        method: "ping",
+        params: {},
+        id: 14
+      }.to_json
+
+      response = request.post("/",
+        :input => mcp_request,
+        "CONTENT_TYPE" => "application/json")
+
+      assert_equal 200, response.status
+      body = JSON.parse(response.body)
+      assert_equal "2.0", body["jsonrpc"]
+      assert_equal 14, body["id"]
+      assert_equal({"legacy" => true}, body["result"])
+    end
+  end
 end
